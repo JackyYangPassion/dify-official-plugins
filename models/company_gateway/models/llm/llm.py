@@ -614,3 +614,50 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
             InvokeAuthorizationError: [requests.exceptions.HTTPError],
             InvokeBadRequestError: [ValueError, requests.exceptions.HTTPError, KeyError],
         }
+
+    def get_customizable_model_schema(self, model: str, credentials: dict) -> Optional[AIModelEntity]:
+        """
+        Get customizable model schema for custom models.
+        
+        :param model: model name
+        :param credentials: model credentials
+        :return: AIModelEntity or None if model not found
+        """
+        try:
+            # Get predefined models using LargeLanguageModel's method
+            models = LargeLanguageModel.predefined_models(self)
+            model_map = {m.model: m for m in models}
+            
+            logger.info(f"Available predefined models: {list(model_map.keys())}")
+            logger.info(f"Looking for model: {model}")
+            
+            # If model exists in predefined models, use it as base
+            if model in model_map:
+                base_model_schema = model_map[model]
+                logger.info(f"Found exact match for model {model}")
+            else:
+                # For custom models, use deepseek-v3 as default template
+                base_model_schema = model_map.get("deepseek-v3")
+                if not base_model_schema:
+                    logger.warning(f"No base model found for {model} and no deepseek-v3 template available")
+                    return None
+                logger.info(f"Using deepseek-v3 as template for model {model}")
+            
+            # Create customizable model entity
+            entity = AIModelEntity(
+                model=model,
+                label=I18nObject(zh_Hans=model, en_US=model),
+                model_type=ModelType.LLM,
+                features=base_model_schema.features or [],
+                fetch_from=FetchFrom.CUSTOMIZABLE_MODEL,
+                model_properties=dict(base_model_schema.model_properties.items()) if base_model_schema.model_properties else {},
+                parameter_rules=list(base_model_schema.parameter_rules) if base_model_schema.parameter_rules else [],
+                pricing=base_model_schema.pricing,
+            )
+            
+            logger.info(f"Successfully created customizable model schema for {model}")
+            return entity
+            
+        except Exception as e:
+            logger.error(f"Failed to get customizable model schema for {model}: {e}")
+            return None

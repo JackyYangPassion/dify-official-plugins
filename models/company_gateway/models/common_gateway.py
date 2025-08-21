@@ -184,9 +184,12 @@ class _CommonGateway:
 
     def predefined_models(self):
         """
-        Get predefined models - this should be implemented by the provider
+        Get predefined models - this method should not be called from _CommonGateway
+        The LargeLanguageModel class will handle predefined models from YAML files
         """
-        raise NotImplementedError("This method should be implemented by the model provider")
+        # This should not be called in practice since LargeLanguageModel.predefined_models() 
+        # will be used instead via method resolution order
+        return []
 
     def enforce_stop_tokens(self, text: str, stop_tokens: list[str]) -> str:
         """
