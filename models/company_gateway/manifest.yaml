@@ -1,0 +1,32 @@
+version: 0.1.0
+type: plugin
+author: "company"
+name: "company_gateway"
+description:
+  en_US: AI models provided through company internal gateway, supporting GPT-4, Qwen, DeepSeek, and Doubao models.
+  zh_Hans: 通过公司内部网关提供的AI模型，支持GPT-4、Qwen、DeepSeek和豆包等模型。
+label:
+  en_US: "Company Gateway"
+  zh_Hans: "公司网关"
+created_at: "2024-12-19T10:00:00Z"
+icon: icon.svg
+resource:
+  memory: 1048576
+  permission:
+    tool:
+      enabled: false
+    model:
+      enabled: true
+      llm: true
+plugins:
+  models:
+    - "provider/company_gateway.yaml"
+meta:
+  version: 0.0.1
+  arch:
+    - "amd64"
+    - "arm64"
+  runner:
+    language: "python"
+    version: "3.12"
+    entrypoint: "main"
