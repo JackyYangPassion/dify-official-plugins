@@ -5,6 +5,7 @@ from decimal import Decimal
 from collections.abc import Generator
 from typing import Optional, Union, cast, Any, List, Dict
 import tiktoken
+import requests
 
 from ..common_gateway import _CommonGateway
 
@@ -49,6 +50,16 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
     """
     Model class for Company Gateway large language models.
     """
+
+    def __init__(self, model_schemas=None):
+        """
+        Initialize the Company Gateway LLM model
+        
+        :param model_schemas: list of model schemas
+        """
+        # Initialize parent classes
+        _CommonGateway.__init__(self)
+        LargeLanguageModel.__init__(self, model_schemas or [])
 
     def _invoke(
         self,
@@ -121,15 +132,14 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                 custom_headers=credentials_kwargs.get('custom_headers')
             )
             
-            # Construct URL
-            base_url = credentials_kwargs.get('base_url', 'http://xyz.cn/')
-            if not base_url.endswith('/'):
-                base_url += '/'
-            url = f"{base_url}v1/chat/completions"
+            # Construct URL with model in path
+            base_url = credentials_kwargs.get('base_url', 'http://xyz.cn')
+            if base_url.endswith('/'):
+                base_url = base_url[:-1]
+            url = f"{base_url}/{model}"
             
-            # Test with a simple message
+            # Test with a simple message (model is in URL, not in body)
             test_data = {
-                "model": model,
                 "messages": [{"role": "user", "content": "hello"}],
                 "max_tokens": 10,
                 "temperature": 0.1,
@@ -193,18 +203,17 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
             custom_headers=credentials_kwargs.get('custom_headers')
         )
         
-        # Construct URL
-        base_url = credentials_kwargs.get('base_url', 'http://xyz.cn/')
-        if not base_url.endswith('/'):
-            base_url += '/'
-        url = f"{base_url}v1/chat/completions"
+        # Construct URL with model in path
+        base_url = credentials_kwargs.get('base_url', 'http://xyz.cn')
+        if base_url.endswith('/'):
+            base_url = base_url[:-1]
+        url = f"{base_url}/{model}"
         
         # Convert prompt messages to OpenAI format
         messages = [self._convert_prompt_message_to_dict(m) for m in prompt_messages]
         
-        # Prepare request data
+        # Prepare request data (model is in URL, not in body)
         request_data = {
-            "model": model,
             "messages": messages,
             "stream": stream,
             **model_parameters
@@ -587,3 +596,21 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                 num_tokens += len(encoding.encode(json.dumps(tool.parameters)))
 
         return num_tokens
+
+    @property
+    def _invoke_error_mapping(self) -> dict[type[InvokeError], list[type[Exception]]]:
+        """
+        Map model invoke error to unified error
+        The key is the error type thrown to the caller
+        The value is the error type thrown by the model,
+        which needs to be converted into a unified error type for the caller.
+
+        :return: Invoke error mapping
+        """
+        return {
+            InvokeConnectionError: [ConnectionError, requests.exceptions.ConnectionError],
+            InvokeServerUnavailableError: [requests.exceptions.HTTPError],
+            InvokeRateLimitError: [],
+            InvokeAuthorizationError: [requests.exceptions.HTTPError],
+            InvokeBadRequestError: [ValueError, requests.exceptions.HTTPError, KeyError],
+        }

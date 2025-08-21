@@ -21,7 +21,7 @@ class CompanyGatewayProvider(ModelProvider):
 
             # Use a simple model for validation
             model_instance.validate_credentials(
-                model="gpt4-128k", credentials=credentials
+                model="deepseek-v3", credentials=credentials
             )
         except CredentialsValidateFailedError as ex:
             raise ex

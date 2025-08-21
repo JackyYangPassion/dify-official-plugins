@@ -19,12 +19,26 @@ class _CommonGateway:
     def __init__(self):
         # Setup session with retry strategy
         self.session = requests.Session()
-        retry_strategy = Retry(
-            total=3,
-            status_forcelist=[429, 500, 502, 503, 504],
-            method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
-            backoff_factor=1
-        )
+        
+        # Handle urllib3 version compatibility
+        retry_kwargs = {
+            "total": 3,
+            "status_forcelist": [429, 500, 502, 503, 504],
+            "backoff_factor": 1
+        }
+        
+        # Try newer parameter name first, fallback to older one
+        try:
+            retry_strategy = Retry(
+                allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+                **retry_kwargs
+            )
+        except TypeError:
+            # Fallback for older urllib3 versions
+            retry_strategy = Retry(
+                method_whitelist=["HEAD", "GET", "OPTIONS", "POST"],
+                **retry_kwargs
+            )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
@@ -35,10 +49,10 @@ class _CommonGateway:
         """
         kwargs = {}
         
-        # Base URL
+        # Base URL (remove trailing slash as model name will be appended)
         api_base_url = credentials.get('api_base_url', 'http://xyz.cn')
-        if not api_base_url.endswith('/'):
-            api_base_url += '/'
+        if api_base_url.endswith('/'):
+            api_base_url = api_base_url[:-1]
         kwargs['base_url'] = api_base_url
         
         # API Key
@@ -147,7 +161,7 @@ class _CommonGateway:
             'gpt4-128k': PriceInfo(prompt=0.01, completion=0.03, currency='USD'),
             'qwen-plus': PriceInfo(prompt=0.008, completion=0.02, currency='USD'),
             'qwen-turbo': PriceInfo(prompt=0.003, completion=0.008, currency='USD'),
-            'deepseek-chat': PriceInfo(prompt=0.0014, completion=0.0028, currency='USD'),
+            'deepseek-v3': PriceInfo(prompt=0.0014, completion=0.0028, currency='USD'),
             'deepseek-coder': PriceInfo(prompt=0.0014, completion=0.0028, currency='USD'),
             'doubao-pro': PriceInfo(prompt=0.005, completion=0.015, currency='USD'),
             'doubao-lite': PriceInfo(prompt=0.0007, completion=0.001, currency='USD'),

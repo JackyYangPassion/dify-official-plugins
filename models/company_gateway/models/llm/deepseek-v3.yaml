@@ -1,4 +1,4 @@
-model: deepseek-chat
+model: deepseek-v3
 label:
   en_US: DeepSeek Chat
   zh_Hans: DeepSeek 对话
