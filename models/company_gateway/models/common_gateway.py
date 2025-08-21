@@ -5,7 +5,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from dify_plugin.entities.model import PriceInfo
+from dify_plugin.entities.model import PriceType
 from dify_plugin.entities.model.llm import LLMUsage
 
 logger = logging.getLogger(__name__)
@@ -133,47 +133,39 @@ class _CommonGateway:
         """
         Calculate response usage and cost
         """
-        # Get pricing information for the model
-        price_info = self._get_price_info(model)
-        
-        # Calculate costs
-        prompt_price = self._calculate_tokens_cost(prompt_tokens, price_info.prompt)
-        completion_price = self._calculate_tokens_cost(completion_tokens, price_info.completion)
+        # Get pricing information for prompt and completion tokens
+        prompt_price_info = self.get_price(
+            model=model, 
+            credentials=credentials, 
+            price_type=PriceType.INPUT, 
+            tokens=prompt_tokens
+        )
+        completion_price_info = self.get_price(
+            model=model, 
+            credentials=credentials, 
+            price_type=PriceType.OUTPUT, 
+            tokens=completion_tokens
+        )
         
         # Create usage object
         usage = LLMUsage(
             prompt_tokens=prompt_tokens,
+            prompt_unit_price=prompt_price_info.unit_price,
+            prompt_price_unit=prompt_price_info.unit,
+            prompt_price=prompt_price_info.total_amount,
             completion_tokens=completion_tokens,
+            completion_unit_price=completion_price_info.unit_price,
+            completion_price_unit=completion_price_info.unit,
+            completion_price=completion_price_info.total_amount,
             total_tokens=prompt_tokens + completion_tokens,
-            total_price=prompt_price + completion_price,
-            currency=price_info.currency,
+            total_price=prompt_price_info.total_amount + completion_price_info.total_amount,
+            currency=prompt_price_info.currency,
             latency=0.0  # This should be set by the caller
         )
         
         return usage
 
-    def _get_price_info(self, model: str) -> PriceInfo:
-        """
-        Get pricing information for a model
-        """
-        # Model pricing configurations
-        model_prices = {
-            'gpt4-128k': PriceInfo(prompt=0.01, completion=0.03, currency='USD'),
-            'qwen-plus': PriceInfo(prompt=0.008, completion=0.02, currency='USD'),
-            'qwen-turbo': PriceInfo(prompt=0.003, completion=0.008, currency='USD'),
-            'deepseek-v3': PriceInfo(prompt=0.0014, completion=0.0028, currency='USD'),
-            'deepseek-coder': PriceInfo(prompt=0.0014, completion=0.0028, currency='USD'),
-            'doubao-pro': PriceInfo(prompt=0.005, completion=0.015, currency='USD'),
-            'doubao-lite': PriceInfo(prompt=0.0007, completion=0.001, currency='USD'),
-        }
-        
-        return model_prices.get(model, PriceInfo(prompt=0.01, completion=0.01, currency='USD'))
 
-    def _calculate_tokens_cost(self, tokens: int, unit_price: float) -> float:
-        """
-        Calculate cost for given tokens
-        """
-        return tokens * unit_price / 1000  # Price is per 1K tokens
 
     def get_model_mode(self, model: str, credentials: Optional[dict] = None):
         """
