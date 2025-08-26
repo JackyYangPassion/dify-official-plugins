@@ -1,7 +1,7 @@
-model: deepseek-v3
+model: doubao-seed-1-6-250615
 label:
-  en_US: DeepSeek V3
-  zh_Hans: DeepSeek V3
+  en_US: Doubao Seed 1.6 250615
+  zh_Hans: 豆包 Seed 1.6 250615
 model_type: llm
 features:
   - agent-thought
@@ -44,7 +44,7 @@ parameter_rules:
     max: 2.0
     precision: 1
 pricing:
-  input: '0.0014'
-  output: '0.0028'
+  input: '0.005'
+  output: '0.015'
   unit: '0.001'
   currency: USD

@@ -1,7 +1,7 @@
-model: deepseek-v3
+model: qwen-plus-2025-04-28
 label:
-  en_US: DeepSeek V3
-  zh_Hans: DeepSeek V3
+  en_US: Qwen Plus 2025-04-28
+  zh_Hans: 通义千问 Plus 2025-04-28
 model_type: llm
 features:
   - agent-thought
@@ -16,7 +16,7 @@ parameter_rules:
     use_template: top_p
   - name: max_tokens
     use_template: max_tokens
-    max: 4096
+    max: 2048
   - name: presence_penalty
     label:
       zh_Hans: 存在惩罚
@@ -44,7 +44,7 @@ parameter_rules:
     max: 2.0
     precision: 1
 pricing:
-  input: '0.0014'
-  output: '0.0028'
+  input: '0.008'
+  output: '0.02'
   unit: '0.001'
   currency: USD

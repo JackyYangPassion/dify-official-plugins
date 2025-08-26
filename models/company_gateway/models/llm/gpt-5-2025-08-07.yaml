@@ -1,14 +1,14 @@
-model: deepseek-v3
+model: gpt-5-2025-08-07
 label:
-  en_US: DeepSeek V3
-  zh_Hans: DeepSeek V3
+  en_US: GPT-5 2025-08-07
+  zh_Hans: GPT-5 2025-08-07
 model_type: llm
 features:
   - agent-thought
   - stream-tool-call
 model_properties:
   mode: chat
-  context_size: 32768
+  context_size: 131072
 parameter_rules:
   - name: temperature
     use_template: temperature
@@ -43,8 +43,22 @@ parameter_rules:
     min: -2.0
     max: 2.0
     precision: 1
+  - name: response_format
+    label:
+      en_US: Response format
+      zh_Hans: 回复格式
+    type: string
+    required: false
+    options:
+      - text
+      - json_object
+      - json_schema
+    default: text
+    help:
+      en_US: Set response format
+      zh_Hans: 设置回复格式
 pricing:
-  input: '0.0014'
-  output: '0.0028'
+  input: '0.015'
+  output: '0.045'
   unit: '0.001'
   currency: USD
