@@ -43,6 +43,18 @@ parameter_rules:
     min: -2.0
     max: 2.0
     precision: 1
+  - name: response_format
+    label:
+      zh_Hans: 回复格式
+      en_US: Response Format
+    type: string
+    help:
+      zh_Hans: 指定模型必须输出的格式
+      en_US: Specifying the format that the model must output
+    required: false
+    options:
+      - text
+      - json_object
 pricing:
   input: '0.005'
   output: '0.015'
