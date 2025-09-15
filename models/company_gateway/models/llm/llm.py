@@ -43,7 +43,16 @@ from dify_plugin.entities.model.message import (
     ToolPromptMessage,
 )
 
-logger = logging.getLogger(__name__)
+# 按照 Dify 文档设置日志记录器
+try:
+    from dify_plugin.config.logger_format import plugin_logger_handler
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    if not any(isinstance(handler, type(plugin_logger_handler)) for handler in logger.handlers):
+        logger.addHandler(plugin_logger_handler)
+except ImportError:
+    # 如果导入失败，使用标准日志记录器
+    logger = logging.getLogger(__name__)
 
 
 class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
@@ -194,6 +203,11 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
         :param user: unique user id
         :return: full response or stream response chunk generator result
         """
+        logger.info(f"Starting chat generation for model: {model}")
+        logger.info(f"Stream mode: {stream}")
+        logger.info(f"Number of prompt messages: {len(prompt_messages)}")
+        logger.info(f"Model parameters: {model_parameters}")
+        
         # Transform credentials to request parameters
         credentials_kwargs = self._to_credential_kwargs(credentials)
         
@@ -209,8 +223,33 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
             base_url = base_url[:-1]
         url = f"{base_url}/{model}"
         
+        logger.info(f"Request URL: {url}")
+        
         # Convert prompt messages to OpenAI format
-        messages = [self._convert_prompt_message_to_dict(m) for m in prompt_messages]
+        messages = []
+        for i, msg in enumerate(prompt_messages):
+            try:
+                converted_msg = self._convert_prompt_message_to_dict(msg)
+                messages.append(converted_msg)
+                
+                # 记录消息转换详情
+                content = converted_msg.get('content', '')
+                if isinstance(content, str):
+                    content_length = len(content)
+                    logger.info(f"Message {i}: role={converted_msg.get('role')}, content_length={content_length}")
+                    # 对于较短的消息，记录完整内容用于调试
+                    if content_length < 100:
+                        logger.debug(f"Message {i} content: {content}")
+                    else:
+                        logger.debug(f"Message {i} content preview: {content[:50]}...")
+                else:
+                    logger.info(f"Message {i}: role={converted_msg.get('role')}, content_type={type(content)}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to convert message {i}: {e}")
+                logger.error(f"Message type: {type(msg)}")
+                logger.error(f"Message content: {getattr(msg, 'content', 'No content')}")
+                raise
         
         # Prepare request data (model is in URL, not in body)
         request_data = {
@@ -241,6 +280,31 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
         if user:
             request_data["user"] = user
 
+        # 最终验证请求数据
+        try:
+            import json
+            json_str = json.dumps(request_data, ensure_ascii=False)
+            logger.debug(f"Final request payload size: {len(json_str.encode('utf-8'))} bytes")
+            
+            # 检查是否有可能导致问题的内容
+            for msg in request_data.get('messages', []):
+                content = msg.get('content', '')
+                if isinstance(content, str) and len(content) > 0:
+                    # 检查特殊字符模式
+                    import re
+                    special_patterns = [
+                        r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]',  # 控制字符
+                        r'[^\x20-\x7E\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]',  # 非常见字符
+                    ]
+                    
+                    for pattern in special_patterns:
+                        if re.search(pattern, content):
+                            logger.warning(f"Found potentially problematic characters in message content")
+                            break
+                            
+        except Exception as e:
+            logger.error(f"Error validating request data: {e}")
+
         start_time = time.time()
         
         try:
@@ -263,8 +327,27 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                     model, credentials, response, prompt_messages, tools, start_time
                 )
                 
+        except requests.exceptions.HTTPError as e:
+            if e.response is not None and e.response.status_code == 400:
+                # 特别处理 400 错误
+                error_msg = self._extract_error_message(e.response)
+                logger.error(f"400 Bad Request error: {error_msg}")
+                logger.error(f"Request data summary: {len(request_data.get('messages', []))} messages, stream={stream}")
+                
+                # 记录可能有问题的消息内容
+                for i, msg in enumerate(request_data.get('messages', [])):
+                    content = msg.get('content', '')
+                    if isinstance(content, str):
+                        logger.error(f"Message {i} ({msg.get('role')}): length={len(content)}, preview='{content[:50]}...'")
+                
+                raise InvokeBadRequestError(f"Bad Request: {error_msg}")
+            else:
+                logger.error(f"HTTP error: {e}")
+                raise InvokeError(f"HTTP error: {str(e)}")
         except Exception as e:
             logger.error(f"Chat generation failed: {e}")
+            logger.error(f"Request URL: {url}")
+            logger.error(f"Request data keys: {list(request_data.keys())}")
             raise InvokeError(str(e))
 
     def _handle_chat_generate_response(
@@ -483,10 +566,38 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
         """
         Convert PromptMessage to dict for Gateway API
         """
+        def clean_content(content):
+            """Clean content to handle potential encoding issues"""
+            if not isinstance(content, str):
+                return content
+            
+            try:
+                # 检查字符串是否可以正确编码
+                content.encode('utf-8')
+                
+                # 移除可能导致问题的控制字符，但保留常见的空白字符
+                import re
+                # 保留换行符、制表符和回车符，但移除其他控制字符
+                cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', content)
+                
+                # 规范化连续的空白字符
+                cleaned = re.sub(r'\s+', ' ', cleaned.strip())
+                
+                return cleaned
+                
+            except UnicodeEncodeError as e:
+                logger.warning(f"Content encoding issue: {e}")
+                # 使用替换字符处理编码问题
+                return content.encode('utf-8', errors='replace').decode('utf-8')
+            except Exception as e:
+                logger.error(f"Unexpected error cleaning content: {e}")
+                return str(content)  # 转换为字符串作为备用方案
+        
         if isinstance(message, UserPromptMessage):
             message = cast(UserPromptMessage, message)
             if isinstance(message.content, str):
-                message_dict = {"role": "user", "content": message.content}
+                cleaned_content = clean_content(message.content)
+                message_dict = {"role": "user", "content": cleaned_content}
             else:
                 # Handle complex content types
                 content_parts = []
@@ -494,7 +605,8 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                 for content in message.content:
                     if content.type == PromptMessageContentType.TEXT:
                         content = cast(TextPromptMessageContent, content)
-                        content_parts.append({"type": "text", "text": content.data})
+                        cleaned_text = clean_content(content.data)
+                        content_parts.append({"type": "text", "text": cleaned_text})
                     # Add support for other content types if needed
                 
                 if len(content_parts) == 1 and content_parts[0]["type"] == "text":
@@ -504,7 +616,8 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                     
         elif isinstance(message, AssistantPromptMessage):
             message = cast(AssistantPromptMessage, message)
-            message_dict = {"role": "assistant", "content": message.content}
+            cleaned_content = clean_content(message.content) if message.content else ""
+            message_dict = {"role": "assistant", "content": cleaned_content}
 
             # Add tool calls if present
             if message.tool_calls:
@@ -514,19 +627,21 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                         "type": tool_call.type or "function",
                         "function": {
                             "name": tool_call.function.name,
-                            "arguments": tool_call.function.arguments,
+                            "arguments": clean_content(tool_call.function.arguments) if tool_call.function.arguments else "",
                         },
                     }
                     for tool_call in message.tool_calls
                 ]
         elif isinstance(message, SystemPromptMessage):
             message = cast(SystemPromptMessage, message)
-            message_dict = {"role": "system", "content": message.content}
+            cleaned_content = clean_content(message.content) if message.content else ""
+            message_dict = {"role": "system", "content": cleaned_content}
         elif isinstance(message, ToolPromptMessage):
             message = cast(ToolPromptMessage, message)
+            cleaned_content = clean_content(message.content) if message.content else ""
             message_dict = {
                 "role": "tool",
-                "content": message.content,
+                "content": cleaned_content,
                 "tool_call_id": message.tool_call_id,
             }
         else:
