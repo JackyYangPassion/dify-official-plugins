@@ -1,0 +1,88 @@
+identity:
+  author: yangjiaqi
+  name: hugegraph_query
+  label:
+    en_US: HugeGraph Query
+    zh_Hans: HugeGraph查询
+    pt_BR: HugeGraph Query
+  description:
+    en_US: Plugin to query HugeGraph database and perform graph operations
+    zh_Hans: 用于查询HugeGraph数据库和执行图操作的插件
+    pt_BR: Plugin to query HugeGraph database and perform graph operations
+  icon: icon.svg
+  tags:
+      - search
+      - graph
+      - database
+tools:
+  - tools/hugegraph_query.yaml
+extra:
+  python:
+    source: provider/hugegraph_query.py
+
+credentials_for_provider:
+  HOST:
+    type: text-input
+    required: true
+    label:
+      en_US: HugeGraph Host
+      zh_Hans: HugeGraph主机
+      pt_BR: HugeGraph Host
+    placeholder:
+      en_US: localhost
+    help:
+      en_US: Enter your HugeGraph server host address
+      zh_Hans: 输入您的HugeGraph服务器主机地址
+      pt_BR: Enter your HugeGraph server host address
+  PORT:
+    type: text-input
+    required: true
+    label:
+      en_US: HugeGraph Port
+      zh_Hans: HugeGraph端口
+      pt_BR: HugeGraph Port
+    placeholder:
+      en_US: "8080"
+    help:
+      en_US: Enter your HugeGraph server port
+      zh_Hans: 输入您的HugeGraph服务器端口
+      pt_BR: Enter your HugeGraph server port
+  GRAPH:
+    type: text-input
+    required: true
+    label:
+      en_US: Graph Name
+      zh_Hans: 图名称
+      pt_BR: Graph Name
+    placeholder:
+      en_US: hugegraph
+    help:
+      en_US: Enter the name of your HugeGraph database
+      zh_Hans: 输入您的HugeGraph数据库名称
+      pt_BR: Enter the name of your HugeGraph database
+  USERNAME:
+    type: text-input
+    required: false
+    label:
+      en_US: Username
+      zh_Hans: 用户名
+      pt_BR: Username
+    placeholder:
+      en_US: admin
+    help:
+      en_US: Enter your HugeGraph username (optional)
+      zh_Hans: 输入您的HugeGraph用户名（可选）
+      pt_BR: Enter your HugeGraph username (optional)
+  PASSWORD:
+    type: secret-input
+    required: false
+    label:
+      en_US: Password
+      zh_Hans: 密码
+      pt_BR: Password
+    placeholder:
+      en_US: Enter your HugeGraph password
+    help:
+      en_US: Enter your HugeGraph password (optional)
+      zh_Hans: 输入您的HugeGraph密码（可选）
+      pt_BR: Enter your HugeGraph password (optional)

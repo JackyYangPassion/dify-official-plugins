@@ -1,0 +1,191 @@
+identity:
+  name: hugegraph_query
+  author: yangjiaqi
+  label:
+    en_US: HugeGraph Query
+    zh_Hans: HugeGraph查询
+    pt_BR: HugeGraph Query
+description:
+  human:
+    en_US: Execute operations on HugeGraph database including queries, vertex/edge management, and schema operations
+    zh_Hans: 在HugeGraph数据库上执行操作，包括查询、顶点/边管理和模式操作
+    pt_BR: Execute operations on HugeGraph database including queries, vertex/edge management, and schema operations
+  llm: Execute operations on HugeGraph database including Gremlin/Cypher queries, vertex/edge CRUD operations, and schema retrieval
+parameters:
+  - name: operation
+    type: select
+    required: true
+    label:
+      en_US: Operation Type
+      zh_Hans: 操作类型
+      pt_BR: Operation Type
+    human_description:
+      en_US: Select the type of operation to perform
+      zh_Hans: 选择要执行的操作类型
+      pt_BR: Select the type of operation to perform
+    llm_description: Select the HugeGraph operation to execute (gremlin_query, cypher_query, add_vertex, get_vertex, add_edge, get_edge, list_vertices, list_edges, get_schema, delete_vertex, delete_edge)
+    form: form
+    options:
+      - value: gremlin_query
+        label:
+          en_US: Gremlin Query
+          zh_Hans: Gremlin查询
+          pt_BR: Gremlin Query
+      - value: cypher_query
+        label:
+          en_US: Cypher Query
+          zh_Hans: Cypher查询
+          pt_BR: Cypher Query
+      - value: add_vertex
+        label:
+          en_US: Add Vertex
+          zh_Hans: 添加顶点
+          pt_BR: Add Vertex
+      - value: get_vertex
+        label:
+          en_US: Get Vertex
+          zh_Hans: 获取顶点
+          pt_BR: Get Vertex
+      - value: add_edge
+        label:
+          en_US: Add Edge
+          zh_Hans: 添加边
+          pt_BR: Add Edge
+      - value: get_edge
+        label:
+          en_US: Get Edge
+          zh_Hans: 获取边
+          pt_BR: Get Edge
+      - value: list_vertices
+        label:
+          en_US: List Vertices
+          zh_Hans: 列出顶点
+          pt_BR: List Vertices
+      - value: list_edges
+        label:
+          en_US: List Edges
+          zh_Hans: 列出边
+          pt_BR: List Edges
+      - value: get_schema
+        label:
+          en_US: Get Schema
+          zh_Hans: 获取模式
+          pt_BR: Get Schema
+      - value: delete_vertex
+        label:
+          en_US: Delete Vertex
+          zh_Hans: 删除顶点
+          pt_BR: Delete Vertex
+      - value: delete_edge
+        label:
+          en_US: Delete Edge
+          zh_Hans: 删除边
+          pt_BR: Delete Edge
+  - name: query
+    type: string
+    required: false
+    label:
+      en_US: Query String
+      zh_Hans: 查询语句
+      pt_BR: Query String
+    human_description:
+      en_US: Gremlin or Cypher query string (required for query operations)
+      zh_Hans: Gremlin或Cypher查询语句（查询操作必需）
+      pt_BR: Gremlin or Cypher query string (required for query operations)
+    llm_description: The Gremlin or Cypher query string to execute (required for gremlin_query and cypher_query operations)
+    form: llm
+  - name: label
+    type: string
+    required: false
+    label:
+      en_US: Label
+      zh_Hans: 标签
+      pt_BR: Label
+    human_description:
+      en_US: Vertex or edge label
+      zh_Hans: 顶点或边标签
+      pt_BR: Vertex or edge label
+    llm_description: The label for vertex/edge operations or filter for list operations
+    form: llm
+  - name: vertex_id
+    type: string
+    required: false
+    label:
+      en_US: Vertex ID
+      zh_Hans: 顶点ID
+      pt_BR: Vertex ID
+    human_description:
+      en_US: ID of the vertex
+      zh_Hans: 顶点的ID
+      pt_BR: ID of the vertex
+    llm_description: The ID of the vertex for get/delete operations, or for creating vertex with specific ID
+    form: llm
+  - name: edge_id
+    type: string
+    required: false
+    label:
+      en_US: Edge ID
+      zh_Hans: 边ID
+      pt_BR: Edge ID
+    human_description:
+      en_US: ID of the edge
+      zh_Hans: 边的ID
+      pt_BR: ID of the edge
+    llm_description: The ID of the edge for get/delete operations, or for creating edge with specific ID
+    form: llm
+  - name: source_id
+    type: string
+    required: false
+    label:
+      en_US: Source Vertex ID
+      zh_Hans: 源顶点ID
+      pt_BR: Source Vertex ID
+    human_description:
+      en_US: ID of the source vertex for edge creation
+      zh_Hans: 用于创建边的源顶点ID
+      pt_BR: ID of the source vertex for edge creation
+    llm_description: The ID of the source vertex when adding an edge
+    form: llm
+  - name: target_id
+    type: string
+    required: false
+    label:
+      en_US: Target Vertex ID
+      zh_Hans: 目标顶点ID
+      pt_BR: Target Vertex ID
+    human_description:
+      en_US: ID of the target vertex for edge creation
+      zh_Hans: 用于创建边的目标顶点ID
+      pt_BR: ID of the target vertex for edge creation
+    llm_description: The ID of the target vertex when adding an edge
+    form: llm
+  - name: properties
+    type: string
+    required: false
+    label:
+      en_US: Properties
+      zh_Hans: 属性
+      pt_BR: Properties
+    human_description:
+      en_US: JSON string of properties for vertex/edge
+      zh_Hans: 顶点/边属性的JSON字符串
+      pt_BR: JSON string of properties for vertex/edge
+    llm_description: JSON string containing properties for vertex/edge creation (e.g. {"name":"John","age":30})
+    form: llm
+  - name: limit
+    type: number
+    required: false
+    default: 100
+    label:
+      en_US: Limit
+      zh_Hans: 限制
+      pt_BR: Limit
+    human_description:
+      en_US: Maximum number of results to return
+      zh_Hans: 返回的最大结果数
+      pt_BR: Maximum number of results to return
+    llm_description: Maximum number of vertices/edges to return when listing (default 100)
+    form: llm
+extra:
+  python:
+    source: tools/hugegraph_query.py
