@@ -33,6 +33,7 @@ from dify_plugin.entities.model.llm import (
 from dify_plugin.entities.model.message import (
     AssistantPromptMessage,
     ImagePromptMessageContent,
+    DocumentPromptMessageContent,
     PromptMessage,
     PromptMessageContentType,
     PromptMessageTool,
@@ -71,12 +72,15 @@ if you are not sure about the structure.
 </instructions>
 """  # noqa: E501
 
-
 class BedrockLargeLanguageModel(LargeLanguageModel):
     # please refer to the documentation: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference.html
     # TODO There is invoke issue: context limit on Cohere Model, will add them after fixed.
     CONVERSE_API_ENABLED_MODEL_INFO = [
+        {"prefix": "qwen.qwen3", "support_system_prompts": True, "support_tool_use": False},
+        {"prefix": "openai.gpt", "support_system_prompts": True, "support_tool_use": False},
+        {"prefix": "deepseek.v3-v1:0", "support_system_prompts": True, "support_tool_use": False},
         {"prefix": "us.deepseek", "support_system_prompts": True, "support_tool_use": False},
+        {"prefix": "global.anthropic.claude", "support_system_prompts": True, "support_tool_use": True},
         {"prefix": "us.anthropic.claude", "support_system_prompts": True, "support_tool_use": True},
         {"prefix": "eu.anthropic.claude", "support_system_prompts": True, "support_tool_use": True},
         {"prefix": "apac.anthropic.claude", "support_system_prompts": True, "support_tool_use": True},
@@ -214,14 +218,11 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                 raise InvokeError(f"Failed to invoke inference profile {inference_profile_id}: {str(e)}")
         else:
             # Traditional model - try converse API first, then fall back if needed
-            try:
-                model_info = self._get_model_info(model, credentials, model_parameters)
-                if model_info:
-                    return self._generate_with_converse(
-                        model_info, credentials, prompt_messages, model_parameters, stop, stream, user, tools, model
-                    )
-            except Exception as e:
-                logger.error(f"Failed to get model info: {str(e)}")
+            model_info = self._get_model_info(model, credentials, model_parameters)
+            if model_info:
+                return self._generate_with_converse(
+                    model_info, credentials, prompt_messages, model_parameters, stop, stream, user, tools, model
+                )
             
             # Fallback to traditional model ID for non-converse API models
             model_name = model_parameters.get('model_name')
@@ -254,7 +255,6 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
 
             # Use inference profile ARN as model ID
             model_id = profile_arn
-            logger.info(f"Using inference profile ARN: {model_id}")
 
             # Determine model capabilities from underlying models
             underlying_models = profile_info.get("models", [])
@@ -270,10 +270,9 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                         # Use the inference profile ARN but with underlying model capabilities
                         model_info = model_info.copy()
                         model_info["model"] = model_id  # Use inference profile ARN for actual API call
-                        logger.info(f"Using inference profile {model_id} with capabilities from {underlying_model_id}")
+                        model_info["underlying_model_id"] = underlying_model_id  # Store underlying model ID for cache support
                         return model_info
             if not model_info:
-                logger.info(f"Using inference profile {model_id} with default capabilities")
                 return {
                     "model": model_id,
                     "support_system_prompts": True,
@@ -281,20 +280,48 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                 }
         else:
             # Use traditional model ID resolution
-            model_name = model_parameters.pop('model_name')
+            model_name = model_parameters.get('model_name')
             model_id = model_ids.get_model_id(model, model_name)
-            
+
             # Store model_name in credentials for pricing calculation
             if 'model_parameters' not in credentials:
                 credentials['model_parameters'] = {}
             credentials['model_parameters']['model_name'] = model_name
             
+            # Get region prefix for model ID construction
+            region_name = credentials['aws_region']
+            region_prefix = None
+            
             if model_parameters.pop('cross-region', False):
-                region_name = credentials['aws_region']
-                region_prefix = model_ids.get_region_area(region_name)
+                # Cross-region inference enabled
+                # Check if the model supports global prefix (currently mainly Claude 4 series)
+                supports_global = any(model_id.startswith(prefix) for prefix in [
+                    'anthropic.claude-sonnet-4', 'anthropic.claude-sonnet-4-5'
+                ])
+                
+                if supports_global:
+                    # Prefer using global prefix
+                    region_prefix = model_ids.get_region_area(region_name, prefer_global=True)
+                else:
+                    # Use traditional regional prefix
+                    region_prefix = model_ids.get_region_area(region_name, prefer_global=False)
+                
                 if not region_prefix:
-                    raise InvokeError(f'Region {region_name} Unsupport cross-region Inference')
+                    raise InvokeError(f'Failed to get cross-region inference prefix for region {region_name}')
+
+                if not model_ids.is_support_cross_region(model_id):
+                    raise InvokeError(f"Model {model_id} doesn't support cross-region inference")
+                
                 model_id = "{}.{}".format(region_prefix, model_id)
+            else:
+                # Cross-region inference not enabled, but still add region prefix for all models
+                region_prefix = model_ids.get_region_area(region_name, prefer_global=False)
+                
+                if not region_prefix:
+                    raise InvokeError(f'Failed to get region prefix for region {region_name}')
+
+                model_id = "{}.{}".format(region_prefix, model_id)
+
 
             model_info = BedrockLargeLanguageModel._find_model_info(model_id)
             if model_info:
@@ -329,25 +356,31 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         bedrock_client = get_bedrock_client("bedrock-runtime", credentials)
 
         # Get cache checkpoint settings from model parameters
-        system_cache_checkpoint = model_parameters.pop("system_cache_checkpoint", True)
+        # Log the incoming parameters for debugging
+        # The default for 'system_cache_checkpoint' is now set to False (was previously True).
+        # This change ensures that cache checkpoints are only enabled if explicitly set by the user in the UI.
+        # This prevents unintended caching behavior and aligns with updated UI settings where the default is unchecked.
+        system_cache_checkpoint = model_parameters.pop("system_cache_checkpoint", False)
         latest_two_messages_cache_checkpoint = model_parameters.pop("latest_two_messages_cache_checkpoint", False)
         logger.info(f"---cache_checkpoints--- system: {system_cache_checkpoint}, penultimate: {latest_two_messages_cache_checkpoint}")
         model_id = model_info["model"]
-        print(f"[CACHE DEBUG] Model: {model_id}, Cache checkpoints - System: {system_cache_checkpoint}, Penultimate: {latest_two_messages_cache_checkpoint}")
-        logger.info(f"[CACHE DEBUG] Model: {model_id}, Cache checkpoints - System: {system_cache_checkpoint}, Penultimate: {latest_two_messages_cache_checkpoint}")
+        logger.debug(f"Model: {model_id}, Cache checkpoints - System: {system_cache_checkpoint}, Penultimate: {latest_two_messages_cache_checkpoint}")
 
         # Enable cache if either checkpoint is enabled
-        cache_supported = is_cache_supported(model_id)
-        print(f"[CACHE DEBUG] Model: {model_id}, Cache supported: {cache_supported}")
-        logger.info(f"[CACHE DEBUG] Model: {model_id}, Cache supported: {cache_supported}")
+        # For inference profiles, use underlying model ID for cache support check
+        cache_check_model_id = model_info.get("underlying_model_id", model_id)
+        cache_supported = is_cache_supported(cache_check_model_id)
+        logger.debug(f"Model: {model_id}, Underlying: {cache_check_model_id}, Cache supported: {cache_supported}")
         if cache_supported == False:
             system_cache_checkpoint = False
             latest_two_messages_cache_checkpoint = False
 
         # Convert messages with cache points if enabled
+        # For inference profiles, use underlying model ID for cache configuration
+        cache_config_model_id = model_info.get("underlying_model_id", model_id)
         system, prompt_message_dicts = self._convert_converse_prompt_messages(
             prompt_messages,
-            model_id=model_id,
+            model_id=cache_config_model_id,
             system_cache_checkpoint=system_cache_checkpoint,
             latest_two_messages_cache_checkpoint=latest_two_messages_cache_checkpoint
         )
@@ -393,25 +426,21 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                     cache_write_tokens = response["usage"].get("cacheWriteInputTokens", 0)
 
                     # Always log the metrics for debugging
-                    print(f"[CACHE METRICS] Model: {model_id}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
                     logger.info(f"[CACHE METRICS] Model: {model_id}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
 
                     # Print the full response usage for debugging
-                    print(f"[CACHE DEBUG] Response usage: {json.dumps(response['usage'], default=str)}")
 
                     # Log cache usage if any tokens were read or written
                     if cache_read_tokens > 0 or cache_write_tokens > 0:
                         logger.info(f"Cache metrics - Model: {model_id}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
                         # If tokens were read from cache, log the savings
                         if cache_read_tokens > 0:
-                            print(f"[CACHE HIT] {cache_read_tokens} tokens read from cache")
-                            logger.info(f"Cache hit detected - {cache_read_tokens} tokens read from cache")
+                            logger.debug(f"[CACHE HIT] {cache_read_tokens} tokens read from cache")
                         elif cache_write_tokens > 0:
-                            print(f"[CACHE WRITE] {cache_write_tokens} tokens written to cache")
-                            logger.info(f"Cache write detected - {cache_write_tokens} tokens written to cache")
+                            logger.debug(f"[CACHE WRITE] {cache_write_tokens} tokens written to cache")
                 else:
                     # Log if usage data is missing
-                    print(f"[WARNING] No usage data in response")
+                    logger.warning(f"[WARNING] No usage data in response")
                     logger.warning(f"No usage data in response")
 
                 return self._handle_converse_response(model_info["model"], credentials, response, prompt_messages)
@@ -551,26 +580,21 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                         cache_write_tokens = chunk["metadata"]["usage"].get("cacheWriteInputTokens", 0)
 
                         # Always log the metrics for debugging
-                        print(f"[STREAM CACHE METRICS] Model: {model}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
                         logger.info(f"[STREAM CACHE METRICS] Model: {model}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
 
                         # Print the full usage data for debugging
-                        print(f"[STREAM USAGE DATA] {json.dumps(chunk['metadata']['usage'], default=str)}")
 
                         # Log cache usage if any tokens were read or written
                         if cache_read_tokens > 0 or cache_write_tokens > 0:
                             logger.info(f"Cache metrics - Model: {model}, Read: {cache_read_tokens} tokens, Write: {cache_write_tokens} tokens")
                             # If tokens were read from cache, log the savings
                             if cache_read_tokens > 0:
-                                print(f"[STREAM CACHE HIT] {cache_read_tokens} tokens read from cache")
-                                logger.info(f"Cache hit detected - {cache_read_tokens} tokens read from cache")
+                                logger.debug(f"[STREAM CACHE HIT] {cache_read_tokens} tokens read from cache")
                             elif cache_write_tokens > 0:
-                                print(f"[STREAM CACHE WRITE] {cache_write_tokens} tokens written to cache")
-                                logger.info(f"Cache write detected - {cache_write_tokens} tokens written to cache")
+                                logger.debug(f"[STREAM CACHE WRITE] {cache_write_tokens} tokens written to cache")
                     else:
                         # Log if usage data is missing
-                        print(f"[STREAM WARNING] No usage data in metadata: {json.dumps(chunk['metadata'], default=str)}")
-                        logger.warning(f"No usage data in metadata chunk: {json.dumps(chunk['metadata'], default=str)}")
+                        logger.warning(f"[STREAM WARNING] No usage data found in metadata chunk")
 
                     usage = self._calc_response_usage(model, credentials, input_tokens, output_tokens)
                     yield LLMResultChunk(
@@ -689,6 +713,9 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         if "top_k" in model_parameters:
             additional_model_fields["top_k"] = model_parameters["top_k"]
 
+        if "anthropic_beta" in model_parameters:
+            additional_model_fields["anthropic_beta"] = list(map(lambda v:v.strip(), model_parameters["anthropic_beta"].strip().split(",")))
+
         # process reasoning related parameters, construct nested reasoning_config structure
         if "reasoning_type" in model_parameters:
             reasoning_type = model_parameters["reasoning_type"]
@@ -742,7 +769,7 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         # and system_cache_checkpoint is enabled
         if system and cache_config and "system" in cache_config["supported_fields"] and system_cache_checkpoint:
             system.append({"cachePoint": {"type": "default"}})
-            print(f"[CACHE DEBUG] Added cache point to system messages for model: {model_id}")
+            logger.debug(f"Added cache point to system messages for model: {model_id}")
 
             # Process other messages
         for message in other_messages:
@@ -758,26 +785,23 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
             if len(user_message_indices) > 0:
                 # Get indices for the latest messages (either one or two depending on availability)
                 indices_to_cache = user_message_indices[-min(2, len(user_message_indices)):]
-                print(f"[CACHE DEBUG] indices_to_cacheis {indices_to_cache}")
+                logger.debug(f"indices_to_cache is {indices_to_cache}")
                 for idx in indices_to_cache:
                     message = prompt_message_dicts[idx]
-                    print(f"[CACHE DEBUG] current idx is {idx}")
+                    logger.debug(f"current idx is {idx}")
 
                     # Check if content is a list
                     if isinstance(message["content"], list):
                         # Add cache point to the content array
                         message["content"].append({"cachePoint": {"type": "default"}})
-                        print(f"[CACHE DEBUG] Added cache point to user message content list at index {idx} for model: {model_id}")
+                        logger.debug(f"Added cache point to user message content list at index {idx} for model: {model_id}")
                     else:
                         # If content is not a list, convert it to a list with the original content and add cache point
                         original_content = message["content"]
                         message["content"] = [{"text": original_content}, {"cachePoint": {"type": "default"}}]
-                        print(f"[CACHE DEBUG] Converted user message content to list and added cache point at index {idx} for model: {model_id}")
+                        logger.debug(f"Converted user message content to list and added cache point at index {idx} for model: {model_id}")
 
                     prompt_message_dicts[idx] = message
-        # Print the final system and messages for debugging
-        # print(f"[CACHE DEBUG] System messages: {json.dumps(system, default=str)}")
-        print(f"[CACHE DEBUG] Prompt messages: {json.dumps(prompt_message_dicts, default=str)}")
 
         return system, prompt_message_dicts
 
@@ -808,7 +832,7 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
                 message_dict = {"role": "user", "content": [{"text": message.content}]}
             else:
                 sub_messages = []
-                for message_content in message.content:
+                for idx, message_content in enumerate(message.content):
                     if message_content.type == PromptMessageContentType.TEXT:
                         message_content = cast(TextPromptMessageContent, message_content)
                         sub_message_dict = {"text": message_content.data}
@@ -828,6 +852,22 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
 
                         sub_message_dict = {
                             "image": {"format": mime_type.replace("image/", ""), "source": {"bytes": image_content}}
+                        }
+                        sub_messages.append(sub_message_dict)
+                    elif message_content.type == PromptMessageContentType.DOCUMENT:
+                        message_content = cast(DocumentPromptMessageContent, message_content)
+                        doc_bytes = base64.b64decode(message_content.base64_data)
+                        mime_type = message_content.mime_type
+
+                        SUPPORTED_DOC_MIME_TYPES = ["application/pdf"]
+                        if mime_type not in SUPPORTED_DOC_MIME_TYPES:
+                            raise ValueError(
+                                f"Unsupported document type {mime_type}, "
+                                f"only support application/pdf"
+                            )
+
+                        sub_message_dict = {
+                            "document": {"format": mime_type.replace("application/", ""), "name": f"pdf-{idx}", "source": {"bytes": doc_bytes}}
                         }
                         sub_messages.append(sub_message_dict)
 
@@ -886,12 +926,18 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
         :param tools: tools for tool calling
         :return:md = genai.GenerativeModel(model)
         """
+        model_parts = model.split(".")
+        
+        prefix = ""
+        model_name = ""
         if model.startswith('us.') or model.startswith('eu.'):
-            prefix = model.split(".")[1]
-            model_name = model.split(".")[2]
+            if len(model_parts) >= 3:
+                prefix = model_parts[1]
+                model_name = model_parts[2]
         else:
-            prefix = model.split(".")[0]
-            model_name = model.split(".")[1]
+            if len(model_parts) >= 2:
+                prefix = model_parts[0]
+                model_name = model_parts[1]
 
         if isinstance(prompt_messages, str):
             prompt = prompt_messages
@@ -1034,7 +1080,7 @@ class BedrockLargeLanguageModel(LargeLanguageModel):
             # Traditional model validation
             foundation_model_ids = self._list_foundation_models(credentials=credentials)
             cris_prefix = model_ids.get_region_area(credentials.get("aws_region"))
-            if model.startswith(cris_prefix):
+            if cris_prefix and model.startswith(cris_prefix + "."):
                 model = model.split('.', 1)[1]
             logger.info(f"get model_ids: {foundation_model_ids}")
             if model not in foundation_model_ids:
