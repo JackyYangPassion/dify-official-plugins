@@ -162,6 +162,8 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                 "stream": False
             }
             
+            # Don't include response_format in validation to avoid potential issues
+            
             # Make validation request
             response = self._make_request(
                 method="POST",
@@ -266,11 +268,14 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
                 logger.error(f"Message content: {getattr(msg, 'content', 'No content')}")
                 raise
         
+        # Process model parameters and handle response_format
+        processed_parameters = self._process_model_parameters(model_parameters)
+        
         # Prepare request data (model is in URL, not in body)
         request_data = {
             "messages": messages,
             "stream": stream,
-            **model_parameters
+            **processed_parameters
         }
         
         # Handle response_format parameter - convert string to object format
@@ -815,6 +820,72 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
 
         logger.debug(f"Extracted {len(tool_calls)} valid tool calls")
         return tool_calls
+
+    def _process_model_parameters(self, model_parameters: dict) -> dict:
+        """
+        Process model parameters and handle special cases like response_format
+        
+        :param model_parameters: original model parameters
+        :return: processed model parameters
+        """
+        processed_parameters = model_parameters.copy()
+        
+        # Handle response_format parameter
+        response_format = processed_parameters.get("response_format")
+        if response_format:
+            if response_format == "json_object":
+                # Convert to OpenAI-compatible format
+                processed_parameters["response_format"] = {"type": "json_object"}
+            elif response_format == "text":
+                # Remove response_format for text (default behavior)
+                processed_parameters.pop("response_format", None)
+            elif response_format == "json_schema":
+                # Handle json_schema format if needed
+                # Note: This might require additional schema parameter
+                processed_parameters["response_format"] = {"type": "json_schema"}
+            # If it's already a dict (e.g., {"type": "json_object"}), keep as-is
+            elif not isinstance(response_format, dict):
+                # For any other string format, convert to dict format
+                processed_parameters["response_format"] = {"type": response_format}
+        
+        return processed_parameters
+
+    def _make_request_with_fallback(
+        self,
+        method: str,
+        url: str,
+        headers: dict,
+        data: Optional[dict] = None,
+        stream: bool = False,
+        timeout: int = 60
+    ) -> requests.Response:
+        """
+        Make HTTP request with fallback for unsupported parameters
+        """
+        try:
+            # First try with all parameters
+            return self._make_request(method, url, headers, data, stream, timeout)
+        except Exception as e:
+            # If request fails and we have response_format, try without it
+            if data and "response_format" in data and ("400" in str(e) or "Bad Request" in str(e)):
+                logger.warning(f"Request failed with response_format, retrying without structured output: {e}")
+                fallback_data = data.copy()
+                response_format = fallback_data.pop("response_format", None)
+                logger.info(f"Removed response_format '{response_format}' from request, falling back to text output")
+                
+                try:
+                    response = self._make_request(method, url, headers, fallback_data, stream, timeout)
+                    logger.info("Fallback request succeeded without structured output")
+                    return response
+                except Exception as fallback_error:
+                    logger.error(f"Fallback request also failed: {fallback_error}")
+                    raise InvokeError(
+                        f"Both structured output and fallback requests failed. "
+                        f"Original error: {str(e)}. Fallback error: {str(fallback_error)}"
+                    )
+            else:
+                # Re-raise original error if not related to response_format
+                raise e
 
     def _convert_prompt_message_to_dict(self, message: PromptMessage) -> dict:
         """

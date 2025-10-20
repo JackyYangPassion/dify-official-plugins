@@ -1,0 +1,395 @@
+{
+  "identity": {
+    "author": "HugeGraph Team",
+    "name": "hugegraph",
+    "label": {
+      "en_US": "HugeGraph",
+      "zh_Hans": "HugeGraph 图数据库"
+    },
+    "description": {
+      "en_US": "HugeGraph integration for graph database operations including vertex/edge management and graph queries",
+      "zh_Hans": "HugeGraph 图数据库集成工具，支持顶点/边管理和图查询操作"
+    },
+    "icon": "hugegraph.svg"
+  },
+  "tools": [
+    {
+      "name": "add_vertex",
+      "label": {
+        "en_US": "Add Vertex",
+        "zh_Hans": "添加顶点"
+      },
+      "description": {
+        "en_US": "Add a vertex to the HugeGraph database",
+        "zh_Hans": "向 HugeGraph 数据库添加顶点"
+      },
+      "parameters": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Vertex Label",
+            "zh_Hans": "顶点标签"
+          },
+          "human_description": {
+            "en_US": "The label/type of the vertex",
+            "zh_Hans": "顶点的标签/类型"
+          }
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en_US": "Vertex ID",
+            "zh_Hans": "顶点ID"
+          },
+          "human_description": {
+            "en_US": "Unique identifier for the vertex (optional, will be auto-generated if not provided)",
+            "zh_Hans": "顶点的唯一标识符（可选，如不提供将自动生成）"
+          }
+        },
+        {
+          "name": "properties",
+          "type": "object",
+          "required": false,
+          "label": {
+            "en_US": "Properties",
+            "zh_Hans": "属性"
+          },
+          "human_description": {
+            "en_US": "Key-value pairs of vertex properties",
+            "zh_Hans": "顶点属性的键值对"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_vertex",
+      "label": {
+        "en_US": "Get Vertex",
+        "zh_Hans": "获取顶点"
+      },
+      "description": {
+        "en_US": "Retrieve a vertex by its ID",
+        "zh_Hans": "根据ID获取顶点"
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Vertex ID",
+            "zh_Hans": "顶点ID"
+          },
+          "human_description": {
+            "en_US": "The unique identifier of the vertex to retrieve",
+            "zh_Hans": "要获取的顶点的唯一标识符"
+          }
+        }
+      ]
+    },
+    {
+      "name": "add_edge",
+      "label": {
+        "en_US": "Add Edge",
+        "zh_Hans": "添加边"
+      },
+      "description": {
+        "en_US": "Add an edge between two vertices",
+        "zh_Hans": "在两个顶点之间添加边"
+      },
+      "parameters": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Edge Label",
+            "zh_Hans": "边标签"
+          },
+          "human_description": {
+            "en_US": "The label/type of the edge relationship",
+            "zh_Hans": "边关系的标签/类型"
+          }
+        },
+        {
+          "name": "source_id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Source Vertex ID",
+            "zh_Hans": "源顶点ID"
+          },
+          "human_description": {
+            "en_US": "ID of the source vertex",
+            "zh_Hans": "源顶点的ID"
+          }
+        },
+        {
+          "name": "target_id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Target Vertex ID",
+            "zh_Hans": "目标顶点ID"
+          },
+          "human_description": {
+            "en_US": "ID of the target vertex",
+            "zh_Hans": "目标顶点的ID"
+          }
+        },
+        {
+          "name": "id",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en_US": "Edge ID",
+            "zh_Hans": "边ID"
+          },
+          "human_description": {
+            "en_US": "Unique identifier for the edge (optional)",
+            "zh_Hans": "边的唯一标识符（可选）"
+          }
+        },
+        {
+          "name": "properties",
+          "type": "object",
+          "required": false,
+          "label": {
+            "en_US": "Properties",
+            "zh_Hans": "属性"
+          },
+          "human_description": {
+            "en_US": "Key-value pairs of edge properties",
+            "zh_Hans": "边属性的键值对"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_edge",
+      "label": {
+        "en_US": "Get Edge",
+        "zh_Hans": "获取边"
+      },
+      "description": {
+        "en_US": "Retrieve an edge by its ID",
+        "zh_Hans": "根据ID获取边"
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Edge ID",
+            "zh_Hans": "边ID"
+          },
+          "human_description": {
+            "en_US": "The unique identifier of the edge to retrieve",
+            "zh_Hans": "要获取的边的唯一标识符"
+          }
+        }
+      ]
+    },
+    {
+      "name": "gremlin_query",
+      "label": {
+        "en_US": "Gremlin Query",
+        "zh_Hans": "Gremlin查询"
+      },
+      "description": {
+        "en_US": "Execute a Gremlin query on the graph",
+        "zh_Hans": "在图上执行Gremlin查询"
+      },
+      "parameters": [
+        {
+          "name": "gremlin",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Gremlin Query",
+            "zh_Hans": "Gremlin查询语句"
+          },
+          "human_description": {
+            "en_US": "The Gremlin query string to execute",
+            "zh_Hans": "要执行的Gremlin查询语句"
+          }
+        }
+      ]
+    },
+    {
+      "name": "cypher_query",
+      "label": {
+        "en_US": "Cypher Query",
+        "zh_Hans": "Cypher查询"
+      },
+      "description": {
+        "en_US": "Execute a Cypher query on the graph",
+        "zh_Hans": "在图上执行Cypher查询"
+      },
+      "parameters": [
+        {
+          "name": "cypher",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Cypher Query",
+            "zh_Hans": "Cypher查询语句"
+          },
+          "human_description": {
+            "en_US": "The Cypher query string to execute",
+            "zh_Hans": "要执行的Cypher查询语句"
+          }
+        }
+      ]
+    },
+    {
+      "name": "list_vertices",
+      "label": {
+        "en_US": "List Vertices",
+        "zh_Hans": "列出顶点"
+      },
+      "description": {
+        "en_US": "List vertices in the graph with optional filtering",
+        "zh_Hans": "列出图中的顶点，支持可选过滤"
+      },
+      "parameters": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en_US": "Vertex Label",
+            "zh_Hans": "顶点标签"
+          },
+          "human_description": {
+            "en_US": "Filter vertices by label (optional)",
+            "zh_Hans": "按标签过滤顶点（可选）"
+          }
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "default": 100,
+          "label": {
+            "en_US": "Limit",
+            "zh_Hans": "限制数量"
+          },
+          "human_description": {
+            "en_US": "Maximum number of vertices to return (default: 100)",
+            "zh_Hans": "返回顶点的最大数量（默认：100）"
+          }
+        }
+      ]
+    },
+    {
+      "name": "list_edges",
+      "label": {
+        "en_US": "List Edges",
+        "zh_Hans": "列出边"
+      },
+      "description": {
+        "en_US": "List edges in the graph with optional filtering",
+        "zh_Hans": "列出图中的边，支持可选过滤"
+      },
+      "parameters": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en_US": "Edge Label",
+            "zh_Hans": "边标签"
+          },
+          "human_description": {
+            "en_US": "Filter edges by label (optional)",
+            "zh_Hans": "按标签过滤边（可选）"
+          }
+        },
+        {
+          "name": "limit",
+          "type": "number",
+          "required": false,
+          "default": 100,
+          "label": {
+            "en_US": "Limit",
+            "zh_Hans": "限制数量"
+          },
+          "human_description": {
+            "en_US": "Maximum number of edges to return (default: 100)",
+            "zh_Hans": "返回边的最大数量（默认：100）"
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_vertex",
+      "label": {
+        "en_US": "Delete Vertex",
+        "zh_Hans": "删除顶点"
+      },
+      "description": {
+        "en_US": "Delete a vertex from the graph",
+        "zh_Hans": "从图中删除顶点"
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Vertex ID",
+            "zh_Hans": "顶点ID"
+          },
+          "human_description": {
+            "en_US": "The unique identifier of the vertex to delete",
+            "zh_Hans": "要删除的顶点的唯一标识符"
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_edge",
+      "label": {
+        "en_US": "Delete Edge",
+        "zh_Hans": "删除边"
+      },
+      "description": {
+        "en_US": "Delete an edge from the graph",
+        "zh_Hans": "从图中删除边"
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en_US": "Edge ID",
+            "zh_Hans": "边ID"
+          },
+          "human_description": {
+            "en_US": "The unique identifier of the edge to delete",
+            "zh_Hans": "要删除的边的唯一标识符"
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_schema",
+      "label": {
+        "en_US": "Get Schema",
+        "zh_Hans": "获取模式"
+      },
+      "description": {
+        "en_US": "Get the schema information of the graph",
+        "zh_Hans": "获取图的模式信息"
+      },
+      "parameters": []
+    }
+  ]
+}
