@@ -273,6 +273,22 @@ class CompanyGatewayLargeLanguageModel(_CommonGateway, LargeLanguageModel):
             **model_parameters
         }
         
+        # Handle response_format parameter - convert string to object format
+        if "response_format" in request_data:
+            response_format_value = request_data["response_format"]
+            if isinstance(response_format_value, str):
+                if response_format_value == "json_object":
+                    request_data["response_format"] = {"type": "json_object"}
+                elif response_format_value == "json_schema":
+                    request_data["response_format"] = {"type": "json_schema"}
+                elif response_format_value == "text":
+                    request_data["response_format"] = {"type": "text"}
+                else:
+                    # For any other string value, keep as is but log a warning
+                    logger.warning(f"Unknown response_format value: {response_format_value}, keeping as string")
+            # If it's already an object, keep it as is
+            logger.info(f"Final response_format: {request_data['response_format']}")
+        
         # Add tools if provided
         if tools:
             request_data["tools"] = [
