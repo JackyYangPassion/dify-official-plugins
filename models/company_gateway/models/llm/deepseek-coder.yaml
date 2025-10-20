@@ -1,0 +1,50 @@
+model: deepseek-coder
+label:
+  en_US: DeepSeek Coder
+  zh_Hans: DeepSeek 编程
+model_type: llm
+features:
+  - agent-thought
+  - stream-tool-call
+model_properties:
+  mode: chat
+  context_size: 16384
+parameter_rules:
+  - name: temperature
+    use_template: temperature
+  - name: top_p
+    use_template: top_p
+  - name: max_tokens
+    use_template: max_tokens
+    max: 4096
+  - name: presence_penalty
+    label:
+      zh_Hans: 存在惩罚
+      en_US: Presence penalty
+    type: float
+    help:
+      zh_Hans: 存在惩罚，介于-2.0到2.0之间的数字。正值会根据新生成的词汇是否出现在文本中来进行惩罚，增加模型讨论新话题的可能性
+      en_US: Present penalty, a number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the text so far, increasing the model's likelihood to talk about new topics.
+    required: false
+    default: 0.0
+    min: -2.0
+    max: 2.0
+    precision: 1
+  - name: frequency_penalty
+    label:
+      zh_Hans: 频率惩罚
+      en_US: Frequency penalty
+    type: float
+    help:
+      zh_Hans: 频率惩罚，介于-2.0到2.0之间的数字。正值会根据新生成的词汇在文本中现有的频率来进行惩罚，减少模型一字不差重复同样话语的可能性
+      en_US: Frequency penalty, a number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in the text so far, decreasing the model's likelihood to repeat the same line verbatim.
+    required: false
+    default: 0.0
+    min: -2.0
+    max: 2.0
+    precision: 1
+pricing:
+  input: '0.0014'
+  output: '0.0028'
+  unit: '0.001'
+  currency: USD

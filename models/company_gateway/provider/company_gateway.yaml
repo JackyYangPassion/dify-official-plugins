@@ -1,0 +1,118 @@
+provider: company_gateway
+label:
+  en_US: Company Gateway
+  zh_Hans: 公司网关
+description:
+  en_US: AI models provided through company internal gateway, supporting GPT-4, Qwen, DeepSeek, and Doubao models.
+  zh_Hans: 通过公司内部网关提供的AI模型，支持GPT-4、Qwen、DeepSeek和豆包等模型。
+icon_small:
+  en_US: icon.svg
+icon_large:
+  en_US: icon.svg
+background: "#1F2937"
+help:
+  title:
+    en_US: Get your API credentials from company gateway
+    zh_Hans: 从公司网关获取API凭证
+  url:
+    en_US: http://xyz.cn/
+supported_model_types:
+  - llm
+configurate_methods:
+  - predefined-model
+model_credential_schema:
+  model:
+    label:
+      en_US: Model Name
+      zh_Hans: 模型名称
+    placeholder:
+      en_US: Enter your model name
+      zh_Hans: 输入模型名称
+  credential_form_schemas:
+    - variable: api_base_url
+      label:
+        en_US: API Base URL
+        zh_Hans: API基础URL
+      type: text-input
+      required: true
+      default: "http://xyz.cn"
+      placeholder:
+        en_US: Enter the gateway base URL
+        zh_Hans: 输入网关基础URL
+    - variable: api_key
+      label:
+        en_US: API Key
+        zh_Hans: API密钥
+      type: secret-input
+      required: true
+      placeholder:
+        en_US: Enter your API key
+        zh_Hans: 输入您的API密钥
+    - variable: custom_header_name
+      label:
+        en_US: Custom Header Name
+        zh_Hans: 自定义请求头名称
+      type: text-input
+      required: false
+      default: "hller"
+      placeholder:
+        en_US: Enter custom header name (e.g., hller)
+        zh_Hans: 输入自定义请求头名称（例如：hller）
+    - variable: custom_header_value
+      label:
+        en_US: Custom Header Value
+        zh_Hans: 自定义请求头值
+      type: text-input
+      required: false
+      placeholder:
+        en_US: Enter custom header value (e.g., jason.zhang)
+        zh_Hans: 输入自定义请求头值（例如：jason.zhang）
+provider_credential_schema:
+  credential_form_schemas:
+    - variable: api_base_url
+      label:
+        en_US: API Base URL
+        zh_Hans: API基础URL
+      type: text-input
+      required: true
+      default: "http://xyz.cn"
+      placeholder:
+        en_US: Enter the gateway base URL, e.g. http://xyz.cn
+        zh_Hans: 输入网关基础URL，例如：http://xyz.cn
+    - variable: api_key
+      label:
+        en_US: API Key
+        zh_Hans: API密钥
+      type: secret-input
+      required: true
+      placeholder:
+        en_US: Enter your API key
+        zh_Hans: 输入您的API密钥
+    - variable: custom_header_name
+      label:
+        en_US: Custom Header Name
+        zh_Hans: 自定义请求头名称
+      type: text-input
+      required: false
+      default: "hller"
+      placeholder:
+        en_US: Enter custom header name (e.g., hller)
+        zh_Hans: 输入自定义请求头名称（例如：hller）
+    - variable: custom_header_value
+      label:
+        en_US: Custom Header Value
+        zh_Hans: 自定义请求头值
+      type: text-input
+      required: false
+      placeholder:
+        en_US: Enter custom header value (e.g., jason.zhang)
+        zh_Hans: 输入自定义请求头值（例如：jason.zhang）
+models:
+  llm:
+    predefined:
+      - "models/llm/*.yaml"
+extra:
+  python:
+    provider_source: provider/company_gateway.py
+    model_sources:
+      - "models/llm/llm.py"
